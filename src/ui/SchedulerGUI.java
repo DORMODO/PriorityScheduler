@@ -2,190 +2,239 @@ package ui;
 
 import logic.PriorityScheduler;
 import model.Process;
+
 import javax.swing.*;
-import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SchedulerGUI extends JFrame implements ActionListener {
+public class SchedulerGUI extends JFrame {
 
-  private JTextField numProcessesField;
-  private JPanel processesPanel;
-  private JButton addButton;
-  private JButton startButton;
-  private GanttChartPanel ganttChartPanel;
-  private JTable resultsTable;
-  private DefaultTableModel resultsTableModel;
-  private JLabel avgWaitingTimeLabel;
-  private JLabel avgTurnaroundTimeLabel;
-  private JLabel avgResponseTimeLabel;
+  // GUI Components
+  private JTextField numProcessesField; // Input field for number of processes
+  private JPanel inputFieldsPanel; // Panel containing process input fields
+  private JButton generateButton, startButton; // Control buttons
+  private JTable resultsTable; // Table showing process metrics
+  private DefaultTableModel tableModel; // Data model for results table
+  private JLabel avgWTLabel, avgTATLabel, avgRTLabel; // Labels for average metrics
+  private GanttChartPanel ganttChartPanel; // Custom panel for Gantt chart
 
-  private List<JTextField[]> processInputFields = new ArrayList<>();
-  private PriorityScheduler scheduler = new PriorityScheduler();
+  // Data structures
+  private List<JTextField[]> inputFieldsList = new ArrayList<>(); // Stores input fields
+  private PriorityScheduler scheduler = new PriorityScheduler(); // Scheduler instance
 
-  private JScrollPane processesScrollPane; // Declare it here as an instance variable
-
+  // Constructor sets up the main window
   public SchedulerGUI() {
     setTitle("Priority Preemptive Scheduler");
     setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-    setLayout(new FlowLayout()); // TEMPORARY LAYOUT CHANGE
-    setPreferredSize(new Dimension(800, 600));
+    setLayout(new BorderLayout(10, 10));
+    setSize(900, 800);  // Increased height to accommodate all panels
 
-    // Initialize processesPanel first
-    processesPanel = new JPanel();
-    processesPanel.setLayout(new BoxLayout(processesPanel, BoxLayout.Y_AXIS));
+    // Create a main scroll pane
+    JPanel mainContainer = new JPanel(new BorderLayout(10, 10));
+    mainContainer.add(createTopInputPanel(), BorderLayout.NORTH);
+    mainContainer.add(createMainPanel(), BorderLayout.CENTER);
+    mainContainer.add(createBottomPanel(), BorderLayout.SOUTH);
 
-    // Initialize processesScrollPane, passing in processesPanel
-    processesScrollPane = new JScrollPane(processesPanel);
+    // Add the main container to a scroll pane
+    JScrollPane mainScroll = new JScrollPane(mainContainer);
+    mainScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    mainScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
 
-    // Initialize inputPanel
-    JPanel inputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-    inputPanel.add(new JLabel("Number of Processes:"));
-    numProcessesField = new JTextField(5);
-    inputPanel.add(numProcessesField);
-    addButton = new JButton("Add Processes");
-    addButton.addActionListener(this);
-    inputPanel.add(addButton);
-
-    // Initialize the other panels
-    JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-    startButton = new JButton("Start Simulation");
-    startButton.addActionListener(this);
-    startButton.setEnabled(false);
-    controlPanel.add(startButton);
-
-    ganttChartPanel = new GanttChartPanel();
-    ganttChartPanel.setPreferredSize(new Dimension(780, 200));
-
-    JPanel resultsPanel = new JPanel(new BorderLayout());
-    resultsTableModel = new DefaultTableModel(new Object[] { "Process ID", "Arrival Time", "Burst Time", "Priority",
-        "Waiting Time", "Turnaround Time", "Response Time" }, 0);
-    resultsTable = new JTable(resultsTableModel);
-    JScrollPane resultsScrollPane = new JScrollPane(resultsTable);
-    resultsPanel.add(new JLabel("Simulation Results:"), BorderLayout.NORTH);
-    resultsPanel.add(resultsScrollPane, BorderLayout.CENTER);
-
-    JPanel avgPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-    avgWaitingTimeLabel = new JLabel("Avg Waiting Time: ");
-    avgPanel.add(avgWaitingTimeLabel);
-    avgTurnaroundTimeLabel = new JLabel("Avg Turnaround Time: ");
-    avgPanel.add(avgTurnaroundTimeLabel);
-    avgResponseTimeLabel = new JLabel("Avg Response Time: ");
-    avgPanel.add(avgResponseTimeLabel);
-    resultsPanel.add(avgPanel, BorderLayout.SOUTH);
-
-    // Add panels in the correct order
-    add(inputPanel); // Add without BorderLayout constraints
-    add(processesScrollPane); // Add without BorderLayout constraints
-    add(controlPanel); // Add without BorderLayout constraints
-    add(ganttChartPanel); // Add without BorderLayout constraints
-    add(resultsPanel); // Add without BorderLayout constraints
-
-    pack();
+    add(mainScroll);
     setLocationRelativeTo(null);
     setVisible(true);
   }
 
-  @Override
-  public void actionPerformed(ActionEvent e) {
-    System.out.println("Action performed: " + e.getActionCommand());
+  private JPanel createTopInputPanel() {
+    // Create a container panel with BorderLayout
+    JPanel containerPanel = new JPanel(new BorderLayout());
+    containerPanel.setBorder(BorderFactory.createTitledBorder("Configuration"));
 
-    if (e.getSource() == addButton) {
-      System.out.println("Add Processes button clicked.");
+    // Create the content panel
+    JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+
+    // Add components as before
+    panel.add(new JLabel("Number of Processes:"));
+    numProcessesField = new JTextField(5);
+    panel.add(numProcessesField);
+
+    generateButton = new JButton("Generate Input Fields");
+    generateButton.addActionListener(this::generateInputFields);
+    panel.add(generateButton);
+
+    startButton = new JButton("Start Simulation");
+    JButton autoFillButton = new JButton("Auto Fill Sample Data");
+    autoFillButton.addActionListener(this::autoFillSampleData);
+    panel.add(autoFillButton);
+    startButton.setEnabled(false);
+    startButton.addActionListener(this::startSimulation);
+    panel.add(startButton);
+
+    // Modify scroll pane settings
+    JScrollPane scrollPane = new JScrollPane(panel);
+    scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    scrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    scrollPane.setPreferredSize(new Dimension(850, 100));
+    scrollPane.setBorder(BorderFactory.createTitledBorder("Configuration"));
+
+    containerPanel.add(scrollPane, BorderLayout.CENTER);
+    return containerPanel;
+  }
+
+  private JPanel createMainPanel() {
+    JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+
+    // Input Panel with enhanced scroll
+    inputFieldsPanel = new JPanel();
+    inputFieldsPanel.setLayout(new BoxLayout(inputFieldsPanel, BoxLayout.Y_AXIS));
+    JScrollPane inputScrollPane = new JScrollPane(inputFieldsPanel);
+    inputScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+    inputScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    inputScrollPane.setBorder(BorderFactory.createTitledBorder("Process Inputs"));
+    inputScrollPane.setPreferredSize(new Dimension(850, 200));
+
+    // Gantt Chart Panel with enhanced scroll
+    ganttChartPanel = new GanttChartPanel();
+    JScrollPane ganttScrollPane = new JScrollPane(ganttChartPanel);
+    ganttScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+    ganttScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_ALWAYS);
+    ganttScrollPane.setBorder(BorderFactory.createTitledBorder("Gantt Chart"));
+    ganttScrollPane.setPreferredSize(new Dimension(850, 200));
+
+    // Add panels with weight
+    mainPanel.add(inputScrollPane, BorderLayout.NORTH);
+    mainPanel.add(ganttScrollPane, BorderLayout.CENTER);
+    return mainPanel;
+  }
+
+  private JPanel createBottomPanel() {
+    JPanel bottomPanel = new JPanel(new BorderLayout(10, 10));
+
+    // Results Table with enhanced scroll
+    tableModel = new DefaultTableModel(
+        new Object[] { "ID", "Arrival", "Burst", "Priority", "Waiting", "Turnaround", "Response" }, 0);
+    resultsTable = new JTable(tableModel);
+    JScrollPane resultsScroll = new JScrollPane(resultsTable);
+    resultsScroll.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+    resultsScroll.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    resultsScroll.setBorder(BorderFactory.createTitledBorder("Results Table"));
+    resultsScroll.setPreferredSize(new Dimension(850, 150));
+
+    // Averages Panel with enhanced scroll
+    JPanel avgPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    avgWTLabel = new JLabel("Avg Waiting Time: ");
+    avgTATLabel = new JLabel("Avg Turnaround Time: ");
+    avgRTLabel = new JLabel("Avg Response Time: ");
+    avgPanel.add(avgWTLabel);
+    avgPanel.add(avgTATLabel);
+    avgPanel.add(avgRTLabel);
+
+    JScrollPane avgScrollPane = new JScrollPane(avgPanel);
+    avgScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+    avgScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+    avgScrollPane.setPreferredSize(new Dimension(850, 60));
+
+    bottomPanel.add(resultsScroll, BorderLayout.CENTER);
+    bottomPanel.add(avgScrollPane, BorderLayout.SOUTH);
+    return bottomPanel;
+  }
+
+  private void generateInputFields(ActionEvent e) {
+    inputFieldsPanel.removeAll();
+    inputFieldsList.clear();
+    try {
+      int num = Integer.parseInt(numProcessesField.getText());
+      if (num <= 0)
+        throw new NumberFormatException();
+
+      for (int i = 0; i < num; i++) {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        row.add(new JLabel("P" + (i + 1) + " → Arrival:"));
+        JTextField arrival = new JTextField(3);
+        row.add(arrival);
+        row.add(new JLabel("Burst:"));
+        JTextField burst = new JTextField(3);
+        row.add(burst);
+        row.add(new JLabel("Priority:"));
+        JTextField priority = new JTextField(3);
+        row.add(priority);
+        inputFieldsList.add(new JTextField[] { arrival, burst, priority });
+        inputFieldsPanel.add(row);
+      }
+
+      inputFieldsPanel.revalidate();
+      inputFieldsPanel.repaint();
+      startButton.setEnabled(true);
+    } catch (NumberFormatException ex) {
+      JOptionPane.showMessageDialog(this, "Please enter a valid positive integer.");
+    }
+  }
+
+  private void startSimulation(ActionEvent e) {
+    List<Process> processes = new ArrayList<>();
+    boolean valid = true;
+
+    for (int i = 0; i < inputFieldsList.size(); i++) {
+      JTextField[] fields = inputFieldsList.get(i);
       try {
-        int numProcesses = Integer.parseInt(numProcessesField.getText());
-        System.out.println("Number of processes entered: " + numProcesses);
-        if (numProcesses > 0) {
-          System.out.println("Number of processes is valid. Proceeding to add fields.");
-          processesPanel.removeAll();
-          processInputFields.clear();
-          System.out.println("Previous process input fields cleared.");
-          for (int i = 0; i < numProcesses; i++) {
-            JPanel processPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            processPanel.setBorder(new LineBorder(Color.GREEN, 2)); // Add a visible border TEMPORARILY
-            processPanel.add(new JLabel("Process " + (i + 1) + ":"));
-            JTextField arrivalField = new JTextField(5);
-            JTextField burstField = new JTextField(5);
-            JTextField priorityField = new JTextField(5);
-            processPanel.add(new JLabel("Arrival:"));
-            processPanel.add(arrivalField);
-            processPanel.add(new JLabel("Burst:"));
-            processPanel.add(burstField);
-            processPanel.add(new JLabel("Priority:"));
-            processPanel.add(priorityField);
-            processesPanel.add(processPanel);
-            processInputFields.add(new JTextField[] { arrivalField, burstField, priorityField });
-            System.out.println("Added input fields for Process " + (i + 1) + " with a green border.");
-          }
-          startButton.setEnabled(true);
-          System.out.println("Start button enabled.");
+        int arrival = Integer.parseInt(fields[0].getText());
+        int burst = Integer.parseInt(fields[1].getText());
+        int priority = Integer.parseInt(fields[2].getText());
 
-          // Force visibility and layout update
-          processesPanel.setVisible(true);
-          processesPanel.revalidate();
-          processesPanel.repaint();
+        if (arrival < 0 || burst <= 0)
+          throw new NumberFormatException();
 
-          processesScrollPane.setVisible(true);
-          processesScrollPane.revalidate();
-          processesScrollPane.repaint();
-
-          revalidate();
-          repaint();
-          System.out.println("Processes panel, scroll pane, and frame visibility forced, revalidated, and repainted.");
-        } else {
-          JOptionPane.showMessageDialog(this, "Number of processes must be greater than 0.", "Input Error",
-              JOptionPane.ERROR_MESSAGE);
-          System.out.println("Error: Number of processes not greater than 0.");
-        }
+        processes.add(new Process("P" + (i + 1), arrival, burst, priority));
       } catch (NumberFormatException ex) {
-        JOptionPane.showMessageDialog(this, "Invalid number of processes.", "Input Error", JOptionPane.ERROR_MESSAGE);
-        System.out.println("Error: NumberFormatException - Invalid number of processes.");
-      }
-    } else if (e.getSource() == startButton) {
-      List<Process> processes = new ArrayList<>();
-      boolean validInput = true;
-      for (int i = 0; i < processInputFields.size(); i++) {
-        JTextField[] fields = processInputFields.get(i);
-        try {
-          int arrivalTime = Integer.parseInt(fields[0].getText());
-          int burstTime = Integer.parseInt(fields[1].getText());
-          int priority = Integer.parseInt(fields[2].getText());
-          if (arrivalTime < 0 || burstTime <= 0) {
-            validInput = false;
-            JOptionPane.showMessageDialog(this,
-                "Arrival time cannot be negative, and burst time must be positive for Process " + (i + 1) + ".",
-                "Input Error", JOptionPane.ERROR_MESSAGE);
-            break;
-          }
-          processes.add(new Process("P" + (i + 1), arrivalTime, burstTime, priority));
-        } catch (NumberFormatException ex) {
-          validInput = false;
-          JOptionPane.showMessageDialog(this, "Invalid input for Process " + (i + 1) + ".", "Input Error",
-              JOptionPane.ERROR_MESSAGE);
-          break;
-        }
-      }
-
-      if (validInput && !processes.isEmpty()) {
-        List<Process> completedProcesses = scheduler.schedule(processes);
-        ganttChartPanel.setExecutionTimeline(scheduler.getExecutionTimeline());
-        resultsTableModel.setRowCount(0); // Clear previous results
-        for (Process p : completedProcesses) {
-          resultsTableModel.addRow(new Object[] { p.getProcessId(), p.getArrivalTime(), p.getBurstTime(),
-              p.getPriority(), p.getWaitingTime(), p.getTurnaroundTime(), p.getResponseTime() });
-        }
-        avgWaitingTimeLabel
-            .setText("Avg Waiting Time: " + String.format("%.2f", scheduler.getAverageWaitingTime(completedProcesses)));
-        avgTurnaroundTimeLabel.setText(
-            "Avg Turnaround Time: " + String.format("%.2f", scheduler.getAverageTurnaroundTime(completedProcesses)));
-        avgResponseTimeLabel.setText(
-            "Avg Response Time: " + String.format("%.2f", scheduler.getAverageResponseTime(completedProcesses)));
+        JOptionPane.showMessageDialog(this, "Invalid input at Process " + (i + 1));
+        valid = false;
+        break;
       }
     }
+
+    if (valid) {
+      List<Process> completed = scheduler.schedule(processes);
+      ganttChartPanel.setExecutionTimeline(scheduler.getExecutionTimeline());
+
+      tableModel.setRowCount(0);
+      for (Process p : completed) {
+        tableModel.addRow(new Object[] {
+            p.getProcessId(), p.getArrivalTime(), p.getBurstTime(), p.getPriority(),
+            p.getWaitingTime(), p.getTurnaroundTime(), p.getResponseTime()
+        });
+      }
+
+      avgWTLabel.setText("Avg Waiting Time: " + String.format("%.2f", scheduler.getAverageWaitingTime(completed)));
+      avgTATLabel
+          .setText("Avg Turnaround Time: " + String.format("%.2f", scheduler.getAverageTurnaroundTime(completed)));
+      avgRTLabel.setText("Avg Response Time: " + String.format("%.2f", scheduler.getAverageResponseTime(completed)));
+    }
+  }
+
+  private void autoFillSampleData(ActionEvent e) {
+    numProcessesField.setText("5");
+    generateInputFields(null); // Trigger field generation
+
+    // Define sample data: {arrival, burst, priority}
+    int[][] data = {
+        { 0, 3, 3 },
+        { 1, 4, 2 },
+        { 2, 6, 4 },
+        { 3, 4, 6 },
+        { 5, 2, 10 }
+    };
+
+    for (int i = 0; i < data.length; i++) {
+      JTextField[] fields = inputFieldsList.get(i);
+      fields[0].setText(String.valueOf(data[i][0])); // Arrival
+      fields[1].setText(String.valueOf(data[i][1])); // Burst
+      fields[2].setText(String.valueOf(data[i][2])); // Priority
+    }
+
+    JOptionPane.showMessageDialog(this, "Sample data auto-filled!");
   }
 
   public static void main(String[] args) {
